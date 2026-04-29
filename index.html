@@ -361,6 +361,118 @@
     .col-header { display: none; }
     .signal-row { gap: 6px; }
   }
+
+  /* Current project indicator */
+  .project-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--text-tertiary);
+    margin-top: 8px;
+  }
+  .project-indicator strong {
+    color: var(--text-secondary);
+    font-weight: 500;
+  }
+  .project-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--text-tertiary);
+    flex-shrink: 0;
+  }
+  .project-dot.unsaved { background: var(--amber); }
+  .project-dot.saved { background: var(--green); }
+
+  /* Projects modal */
+  .projects-modal {
+    max-width: 520px;
+  }
+  .save-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+  .save-row input {
+    flex: 1;
+    height: 34px;
+    font-size: 13px;
+    font-family: var(--font);
+    padding: 0 12px;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius);
+    background: var(--bg);
+    color: var(--text-primary);
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .save-row input:focus {
+    border-color: var(--blue);
+    box-shadow: 0 0 0 3px rgba(26,86,219,0.1);
+  }
+  .save-row input::placeholder { color: var(--text-tertiary); }
+  .projects-list {
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    max-height: 320px;
+    overflow-y: auto;
+  }
+  .projects-empty {
+    padding: 28px;
+    text-align: center;
+    font-size: 13px;
+    color: var(--text-tertiary);
+  }
+  .project-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 11px 14px;
+    border-bottom: 1px solid var(--border);
+    transition: background 0.1s;
+  }
+  .project-item:last-child { border-bottom: none; }
+  .project-item:hover { background: var(--surface-2); }
+  .project-item-left { flex: 1; min-width: 0; }
+  .project-item-name {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .project-item-meta {
+    font-size: 11px;
+    color: var(--text-tertiary);
+    margin-top: 2px;
+  }
+  .project-item-actions { display: flex; gap: 6px; flex-shrink: 0; margin-left: 12px; }
+  .btn-ghost {
+    font-size: 11px;
+    font-weight: 500;
+    font-family: var(--font);
+    padding: 4px 10px;
+    border-radius: 5px;
+    border: 1px solid var(--border-strong);
+    background: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: background 0.1s;
+  }
+  .btn-ghost:hover { background: var(--surface-2); }
+  .btn-ghost.danger { color: var(--red); border-color: rgba(155,28,28,0.2); }
+  .btn-ghost.danger:hover { background: var(--red-bg); }
+  .projects-section-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-tertiary);
+    margin-bottom: 6px;
+  }
 </style>
 </head>
 <body>
@@ -370,6 +482,10 @@
   <div class="page-header">
     <h1>Outbound new business diagnostic</h1>
     <p>Pure outbound motion — investigate low net new MRR and new logo opportunity creation. Rate each signal, log your data source, and add hypotheses as patterns emerge.</p>
+    <div class="project-indicator">
+      <span class="project-dot" id="project-dot"></span>
+      <span id="project-label">No project loaded</span>
+    </div>
   </div>
 
   <div class="summary-grid">
@@ -398,13 +514,30 @@
   <div id="sections-container"></div>
 
   <div class="footer">
-    <span class="footer-note">Export your findings and share with your team or paste into Claude</span>
+    <button class="btn-secondary" onclick="openProjects()">Projects</button>
     <div style="display:flex;gap:8px;">
       <button class="btn-secondary" onclick="resetAll()">Reset</button>
       <button class="btn-primary" onclick="openExport()">Export findings →</button>
     </div>
   </div>
 
+</div>
+
+<!-- Projects modal -->
+<div class="modal-overlay" id="projects-modal">
+  <div class="modal projects-modal">
+    <h3>Projects</h3>
+    <div class="projects-section-label">Save current work</div>
+    <div class="save-row">
+      <input type="text" id="project-name-input" placeholder="Project name (e.g. Q2 EMEA review)" maxlength="60" />
+      <button class="btn-primary" onclick="saveProject()">Save</button>
+    </div>
+    <div class="projects-section-label">Saved projects</div>
+    <div class="projects-list" id="projects-list"></div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeProjects()">Close</button>
+    </div>
+  </div>
 </div>
 
 <!-- Export modal -->
@@ -500,6 +633,132 @@ const sections = [
 ];
 
 let state = {};
+let currentProjectName = null; // name of the loaded project, null if unsaved
+
+// ── Storage helpers ──────────────────────────────────────────────────────────
+
+function autoSave() {
+  localStorage.setItem('outbound_current', JSON.stringify(state));
+  updateProjectIndicator(false);
+}
+
+function getProjects() {
+  return JSON.parse(localStorage.getItem('outbound_projects') || '{}');
+}
+
+function setProjects(projects) {
+  localStorage.setItem('outbound_projects', JSON.stringify(projects));
+}
+
+function updateProjectIndicator(saved) {
+  const dot = document.getElementById('project-dot');
+  const label = document.getElementById('project-label');
+  if (currentProjectName) {
+    dot.className = 'project-dot ' + (saved ? 'saved' : 'unsaved');
+    label.innerHTML = saved
+      ? `<strong>${currentProjectName}</strong> — saved`
+      : `<strong>${currentProjectName}</strong> — unsaved changes`;
+  } else {
+    dot.className = 'project-dot unsaved';
+    label.innerHTML = 'Unsaved — no project selected';
+  }
+}
+
+// ── Projects CRUD ────────────────────────────────────────────────────────────
+
+function saveProject() {
+  const input = document.getElementById('project-name-input');
+  const name = input.value.trim();
+  if (!name) { input.focus(); return; }
+  const projects = getProjects();
+  const isOverwrite = !!projects[name];
+  if (isOverwrite && !confirm(`Overwrite existing project "${name}"?`)) return;
+  projects[name] = { savedAt: new Date().toISOString(), state: JSON.parse(JSON.stringify(state)) };
+  setProjects(projects);
+  currentProjectName = name;
+  input.value = '';
+  updateProjectIndicator(true);
+  renderProjectsList();
+}
+
+function loadProject(name) {
+  const projects = getProjects();
+  if (!projects[name]) return;
+  state = JSON.parse(JSON.stringify(projects[name].state));
+  currentProjectName = name;
+  buildSections();
+  updateProjectIndicator(true);
+  closeProjects();
+}
+
+function deleteProject(name) {
+  if (!confirm(`Delete project "${name}"? This cannot be undone.`)) return;
+  const projects = getProjects();
+  delete projects[name];
+  setProjects(projects);
+  if (currentProjectName === name) {
+    currentProjectName = null;
+    updateProjectIndicator(false);
+  }
+  renderProjectsList();
+}
+
+function renderProjectsList() {
+  const container = document.getElementById('projects-list');
+  const projects = getProjects();
+  const entries = Object.entries(projects).sort((a, b) => new Date(b[1].savedAt) - new Date(a[1].savedAt));
+  if (!entries.length) {
+    container.innerHTML = '<div class="projects-empty">No saved projects yet</div>';
+    return;
+  }
+  container.innerHTML = entries.map(([name, data]) => {
+    const date = new Date(data.savedAt);
+    const dateStr = date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    const timeStr = date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+    let reds = 0, ambers = 0;
+    sections.forEach(sec => {
+      sec.signals.forEach((_, i) => {
+        const st = data.state[sec.id]?.[i]?.status;
+        if (st === 'red') reds++;
+        if (st === 'amber') ambers++;
+      });
+    });
+    const summary = [
+      reds > 0 ? `${reds} red` : '',
+      ambers > 0 ? `${ambers} amber` : '',
+    ].filter(Boolean).join(', ') || 'No flags';
+    const isActive = name === currentProjectName;
+    return `<div class="project-item">
+      <div class="project-item-left">
+        <div class="project-item-name">${name}${isActive ? ' ✓' : ''}</div>
+        <div class="project-item-meta">${dateStr} at ${timeStr} &middot; ${summary}</div>
+      </div>
+      <div class="project-item-actions">
+        <button class="btn-ghost" onclick="loadProject(${JSON.stringify(name)})">Load</button>
+        <button class="btn-ghost danger" onclick="deleteProject(${JSON.stringify(name)})">Delete</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function openProjects() {
+  renderProjectsList();
+  document.getElementById('projects-modal').classList.add('open');
+}
+
+function closeProjects() {
+  document.getElementById('projects-modal').classList.remove('open');
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('projects-modal').addEventListener('click', function(e) {
+    if (e.target === this) closeProjects();
+  });
+  // Pre-fill project name input with enter key support
+  document.getElementById('project-name-input').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') saveProject();
+  });
+});
 
 function getStatusClass(v) {
   if (v === "green") return "badge-green";
@@ -584,6 +843,7 @@ function setFinding(secId, idx, key, val) {
   if (!state[secId]) state[secId] = {};
   if (!state[secId][idx]) state[secId][idx] = {};
   state[secId][idx][key] = val;
+  autoSave();
   if (key === "status") {
     const badge = document.getElementById(`badge-${secId}-${idx}`);
     if (badge) { badge.className = "badge " + getStatusClass(val); badge.textContent = getStatusLabel(val); }
@@ -595,6 +855,7 @@ function setFinding(secId, idx, key, val) {
 function setHypothesis(secId, val) {
   if (!state[secId]) state[secId] = {};
   state[secId]._hypothesis = val;
+  autoSave();
 }
 
 function updateSectionScore(secId) {
@@ -702,14 +963,25 @@ function copyExport() {
 function resetAll() {
   if (!confirm("Reset all findings? This cannot be undone.")) return;
   state = {};
+  currentProjectName = null;
+  localStorage.removeItem('outbound_current');
   buildSections();
+  updateProjectIndicator(false);
 }
 
 document.getElementById("modal").addEventListener("click", function(e) {
   if (e.target === this) closeModal();
 });
 
-buildSections();
+// Restore last auto-saved session on page load
+(function init() {
+  const saved = localStorage.getItem('outbound_current');
+  if (saved) {
+    try { state = JSON.parse(saved); } catch(e) { state = {}; }
+  }
+  buildSections();
+  updateProjectIndicator(false);
+})();
 </script>
 </body>
 </html>
