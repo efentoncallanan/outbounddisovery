@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Outbound New Business Diagnostic</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #f7f6f3;
+    --surface: #ffffff;
+    --surface-2: #f0efe9;
+    --border: rgba(0,0,0,0.08);
+    --border-strong: rgba(0,0,0,0.14);
+    --text-primary: #1a1917;
+    --text-secondary: #6b6a65;
+    --text-tertiary: #9e9d97;
+    --blue: #1a56db;
+    --blue-bg: #eef3fd;
+    --green: #057a55;
+    --green-bg: #e8f5ef;
+    --amber: #92400e;
+    --amber-bg: #fef3e2;
+    --red: #9b1c1c;
+    --red-bg: #fde8e8;
+    --gray-tag: #6b6a65;
+    --gray-tag-bg: #ebebeb;
+    --font: 'DM Sans', sans-serif;
+    --mono: 'DM Mono', monospace;
+    --radius: 8px;
+    --radius-lg: 12px;
+  }
+
+  body {
+    font-family: var(--font);
+    background: var(--bg);
+    color: var(--text-primary);
+    min-height: 100vh;
+    padding: 2.5rem 1.5rem;
+  }
+
+  .container {
+    max-width: 860px;
+    margin: 0 auto;
+  }
+
+  /* Header */
+  .page-header {
+    margin-bottom: 2rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .page-header h1 {
+    font-size: 22px;
+    font-weight: 600;
+    letter-spacing: -0.3px;
+    margin-bottom: 6px;
+  }
+  .page-header p {
+    font-size: 14px;
+    color: var(--text-secondary);
+    line-height: 1.6;
+  }
+
+  /* Summary cards */
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    margin-bottom: 2rem;
+  }
+  @media (max-width: 600px) { .summary-grid { grid-template-columns: repeat(2, 1fr); } }
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 14px 16px;
+  }
+  .stat-card .stat-label {
+    font-size: 11px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-tertiary);
+    margin-bottom: 6px;
+  }
+  .stat-card .stat-value {
+    font-size: 26px;
+    font-weight: 600;
+    line-height: 1;
+    color: var(--text-primary);
+  }
+  .stat-card .stat-sub {
+    font-size: 11px;
+    color: var(--text-tertiary);
+    margin-top: 4px;
+  }
+  #stat-red { color: var(--red); }
+  #stat-amber { color: var(--amber); }
+  #stat-cause { font-size: 13px; font-weight: 500; padding-top: 4px; line-height: 1.4; }
+
+  /* Sections */
+  .section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    margin-bottom: 10px;
+    transition: box-shadow 0.15s;
+  }
+  .section:hover { box-shadow: 0 2px 12px rgba(0,0,0,0.06); }
+
+  .section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 18px;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.1s;
+  }
+  .section-header:hover { background: var(--surface-2); }
+
+  .section-left { display: flex; align-items: center; gap: 10px; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+  .section-name { font-size: 14px; font-weight: 500; }
+  .start-here {
+    font-size: 10px;
+    font-weight: 500;
+    padding: 2px 7px;
+    border-radius: 4px;
+    background: #fef3e2;
+    color: #92400e;
+    margin-left: 6px;
+    vertical-align: middle;
+  }
+  .section-right { display: flex; align-items: center; gap: 14px; }
+  .section-score { font-size: 12px; font-weight: 500; color: var(--text-secondary); }
+  .chevron {
+    width: 16px;
+    height: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-tertiary);
+    font-size: 10px;
+    transition: transform 0.2s;
+  }
+  .chevron.open { transform: rotate(180deg); }
+
+  /* Body */
+  .section-body { display: none; border-top: 1px solid var(--border); }
+  .section-body.open { display: block; }
+
+  .col-header {
+    display: grid;
+    grid-template-columns: 1fr 200px 160px 120px;
+    gap: 12px;
+    padding: 8px 18px;
+    background: var(--surface-2);
+    border-bottom: 1px solid var(--border);
+  }
+  .col-header span {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--text-tertiary);
+  }
+
+  .signal-row {
+    display: grid;
+    grid-template-columns: 1fr 200px 160px 120px;
+    gap: 12px;
+    align-items: center;
+    padding: 11px 18px;
+    border-bottom: 1px solid var(--border);
+    transition: background 0.1s;
+  }
+  .signal-row:last-of-type { border-bottom: none; }
+  .signal-row:hover { background: #fafaf8; }
+
+  .signal-label { font-size: 13px; font-weight: 400; color: var(--text-primary); }
+  .signal-hint { font-size: 11px; color: var(--text-tertiary); margin-top: 2px; }
+
+  .signal-row input[type="text"] {
+    width: 100%;
+    height: 32px;
+    font-size: 12px;
+    font-family: var(--font);
+    padding: 0 10px;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius);
+    background: var(--bg);
+    color: var(--text-primary);
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .signal-row input[type="text"]:focus {
+    border-color: var(--blue);
+    box-shadow: 0 0 0 3px rgba(26,86,219,0.1);
+  }
+  .signal-row input[type="text"]::placeholder { color: var(--text-tertiary); }
+
+  .signal-row select {
+    width: 100%;
+    height: 32px;
+    font-size: 12px;
+    font-family: var(--font);
+    padding: 0 10px;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius);
+    background: var(--bg);
+    color: var(--text-primary);
+    outline: none;
+    cursor: pointer;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236b6a65' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    transition: border-color 0.15s;
+  }
+  .signal-row select:focus { border-color: var(--blue); }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    font-size: 11px;
+    font-weight: 500;
+    padding: 3px 9px;
+    border-radius: 20px;
+    white-space: nowrap;
+  }
+  .badge-gray { background: var(--gray-tag-bg); color: var(--gray-tag); }
+  .badge-green { background: var(--green-bg); color: var(--green); }
+  .badge-amber { background: var(--amber-bg); color: var(--amber); }
+  .badge-red { background: var(--red-bg); color: var(--red); }
+
+  /* Hypothesis */
+  .hypothesis {
+    padding: 12px 18px;
+    background: var(--surface-2);
+    border-top: 1px solid var(--border);
+  }
+  .hypothesis label {
+    display: block;
+    font-size: 11px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-tertiary);
+    margin-bottom: 6px;
+  }
+  .hypothesis textarea {
+    width: 100%;
+    font-size: 13px;
+    font-family: var(--font);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius);
+    background: var(--surface);
+    color: var(--text-primary);
+    padding: 8px 12px;
+    resize: none;
+    outline: none;
+    line-height: 1.5;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .hypothesis textarea:focus {
+    border-color: var(--blue);
+    box-shadow: 0 0 0 3px rgba(26,86,219,0.1);
+  }
+  .hypothesis textarea::placeholder { color: var(--text-tertiary); }
+
+  /* Footer */
+  .footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 1.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border);
+  }
+  .footer-note { font-size: 12px; color: var(--text-tertiary); }
+
+  .btn-primary {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    font-family: var(--font);
+    padding: 9px 18px;
+    border-radius: var(--radius);
+    border: none;
+    background: var(--text-primary);
+    color: #fff;
+    cursor: pointer;
+    transition: opacity 0.15s, transform 0.1s;
+  }
+  .btn-primary:hover { opacity: 0.85; }
+  .btn-primary:active { transform: scale(0.98); }
+
+  .btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 400;
+    font-family: var(--font);
+    padding: 7px 14px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border-strong);
+    background: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: background 0.1s;
+  }
+  .btn-secondary:hover { background: var(--surface-2); }
+
+  /* Export modal */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.4);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--surface);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border);
+    width: 100%;
+    max-width: 600px;
+    padding: 1.5rem;
+  }
+  .modal h3 { font-size: 16px; font-weight: 500; margin-bottom: 12px; }
+  .modal textarea {
+    width: 100%;
+    height: 280px;
+    font-size: 12px;
+    font-family: var(--mono);
+    line-height: 1.6;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius);
+    background: var(--surface-2);
+    color: var(--text-primary);
+    padding: 12px;
+    resize: none;
+    outline: none;
+  }
+  .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 12px; }
+
+  @media (max-width: 700px) {
+    .col-header, .signal-row { grid-template-columns: 1fr; }
+    .col-header { display: none; }
+    .signal-row { gap: 6px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+
+  <div class="page-header">
+    <h1>Outbound new business diagnostic</h1>
+    <p>Pure outbound motion — investigate low net new MRR and new logo opportunity creation. Rate each signal, log your data source, and add hypotheses as patterns emerge.</p>
+  </div>
+
+  <div class="summary-grid">
+    <div class="stat-card">
+      <div class="stat-label">Signals reviewed</div>
+      <div class="stat-value" id="stat-reviewed">0</div>
+      <div class="stat-sub">of <span id="stat-total">0</span> total</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Red flags</div>
+      <div class="stat-value" id="stat-red">0</div>
+      <div class="stat-sub">critical issues found</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Amber flags</div>
+      <div class="stat-value" id="stat-amber">0</div>
+      <div class="stat-sub">needs investigation</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Likely root cause</div>
+      <div class="stat-value" id="stat-cause">—</div>
+      <div class="stat-sub">highest risk area</div>
+    </div>
+  </div>
+
+  <div id="sections-container"></div>
+
+  <div class="footer">
+    <span class="footer-note">Export your findings and share with your team or paste into Claude</span>
+    <div style="display:flex;gap:8px;">
+      <button class="btn-secondary" onclick="resetAll()">Reset</button>
+      <button class="btn-primary" onclick="openExport()">Export findings →</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- Export modal -->
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <h3>Findings export</h3>
+    <textarea id="export-text" readonly></textarea>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModal()">Close</button>
+      <button class="btn-primary" onclick="copyExport()">Copy to clipboard</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const sections = [
+  {
+    id: "activity",
+    name: "Rep activity & capacity",
+    color: "#1a56db",
+    priority: true,
+    signals: [
+      { label: "Sequences enrolled per rep per week", hint: "vs. target and prior period" },
+      { label: "Call attempts & connect rate", hint: "Dials made, % reaching a live person" },
+      { label: "LinkedIn outreach volume", hint: "Connection requests, DMs sent" },
+      { label: "Meetings booked per rep per week", hint: "Absolute number vs. quota" },
+      { label: "Activity trend over time", hint: "Is volume declining week-on-week?" },
+    ]
+  },
+  {
+    id: "targeting",
+    name: "List quality & targeting",
+    color: "#057a55",
+    priority: true,
+    signals: [
+      { label: "ICP fit of accounts being prospected", hint: "Firmographic match: size, vertical, tech stack" },
+      { label: "Persona accuracy", hint: "Are reps reaching economic buyers or just users?" },
+      { label: "Contact data quality", hint: "Bounce rate, bad numbers, outdated titles" },
+      { label: "Territory coverage & account overlap", hint: "Over-prospected accounts, duplicates, rep clashes" },
+      { label: "Whitespace availability", hint: "Is the addressable list getting exhausted?" },
+    ]
+  },
+  {
+    id: "messaging",
+    name: "Sequence & messaging performance",
+    color: "#c27803",
+    priority: true,
+    signals: [
+      { label: "Email open rate by sequence", hint: "Benchmark: 30–50% for targeted outbound" },
+      { label: "Reply rate (all replies)", hint: "Benchmark: 5–15% depending on channel" },
+      { label: "Positive reply rate", hint: "Interested responses as % of total replies" },
+      { label: "Meeting booked rate from sequence", hint: "Enrolled → meeting set conversion" },
+      { label: "Message relevance & personalisation", hint: "Generic blasts vs. tailored by persona/vertical" },
+      { label: "Sequence recency", hint: "When were sequences last updated or A/B tested?" },
+    ]
+  },
+  {
+    id: "meetings",
+    name: "Meeting quality & discovery",
+    color: "#7e3af2",
+    signals: [
+      { label: "Meeting held rate", hint: "% of booked meetings that actually happen" },
+      { label: "Meeting-to-qualified-opp conversion", hint: "Are discovery calls converting to pipeline?" },
+      { label: "Seniority of meeting attendees", hint: "Are we speaking to decision-makers?" },
+      { label: "Discovery call quality", hint: "Is real pain/urgency being uncovered?" },
+      { label: "Opp disqualification reason", hint: "No pain, wrong person, wrong timing, budget?" },
+    ]
+  },
+  {
+    id: "rep",
+    name: "Rep-level variance",
+    color: "#c81e78",
+    signals: [
+      { label: "Activity volume by rep vs. peers", hint: "Who is significantly above or below?" },
+      { label: "Connect-to-meeting rate by rep", hint: "Isolates messaging/talk track skill" },
+      { label: "Meeting-to-opp rate by rep", hint: "Isolates discovery and qualification skill" },
+      { label: "Tenure & ramp status", hint: "Are new hires diluting team averages?" },
+      { label: "Coaching & call review cadence", hint: "Are underperformers getting structured support?" },
+    ]
+  },
+  {
+    id: "pipeline",
+    name: "Pipeline health & deal progression",
+    color: "#6b6a65",
+    signals: [
+      { label: "New opps created per week vs. target", hint: "Primary output metric of outbound motion" },
+      { label: "Average ACV of new opps", hint: "Is deal size compressing vs. prior period?" },
+      { label: "Sales cycle length trend", hint: "Are deals stalling earlier in the funnel?" },
+      { label: "Win/loss reasons (last 30–60 days)", hint: "Competitor, no decision, budget, timing?" },
+      { label: "Pipeline coverage ratio", hint: "Do you have enough pipe to hit MRR target?" },
+    ]
+  }
+];
+
+let state = {};
+
+function getStatusClass(v) {
+  if (v === "green") return "badge-green";
+  if (v === "amber") return "badge-amber";
+  if (v === "red") return "badge-red";
+  return "badge-gray";
+}
+function getStatusLabel(v) {
+  if (v === "green") return "On track";
+  if (v === "amber") return "Needs review";
+  if (v === "red") return "Critical issue";
+  return "Not reviewed";
+}
+
+function buildSections() {
+  const container = document.getElementById("sections-container");
+  container.innerHTML = "";
+
+  sections.forEach(sec => {
+    const wrap = document.createElement("div");
+    wrap.className = "section";
+
+    const rowsHtml = sec.signals.map((sig, i) => {
+      const f = state[sec.id]?.[i] || {};
+      return `
+        <div class="signal-row">
+          <div>
+            <div class="signal-label">${sig.label}</div>
+            <div class="signal-hint">${sig.hint}</div>
+          </div>
+          <input type="text" placeholder="e.g. Salesloft, SFDC" value="${f.note||''}"
+            onchange="setFinding('${sec.id}',${i},'note',this.value)" />
+          <select onchange="setFinding('${sec.id}',${i},'status',this.value)">
+            <option value="" ${!f.status?'selected':''}>— not reviewed</option>
+            <option value="green" ${f.status==='green'?'selected':''}>On track</option>
+            <option value="amber" ${f.status==='amber'?'selected':''}>Needs review</option>
+            <option value="red" ${f.status==='red'?'selected':''}>Critical issue</option>
+          </select>
+          <span class="badge ${getStatusClass(f.status)}" id="badge-${sec.id}-${i}">${getStatusLabel(f.status)}</span>
+        </div>`;
+    }).join('');
+
+    wrap.innerHTML = `
+      <div class="section-header" onclick="toggleSection('${sec.id}')">
+        <div class="section-left">
+          <div class="dot" style="background:${sec.color}"></div>
+          <span class="section-name">${sec.name}${sec.priority ? '<span class="start-here">start here</span>' : ''}</span>
+        </div>
+        <div class="section-right">
+          <span class="section-score" id="score-${sec.id}"></span>
+          <span class="chevron" id="chev-${sec.id}">▼</span>
+        </div>
+      </div>
+      <div class="section-body" id="body-${sec.id}">
+        <div class="col-header">
+          <span>Signal</span>
+          <span>Data source / notes</span>
+          <span>Status</span>
+          <span></span>
+        </div>
+        ${rowsHtml}
+        <div class="hypothesis">
+          <label>Hypothesis / notes</label>
+          <textarea rows="2" placeholder="What patterns are you seeing? What's your gut feel on the root cause here?"
+            onchange="setHypothesis('${sec.id}',this.value)">${state[sec.id]?._hypothesis||''}</textarea>
+        </div>
+      </div>`;
+    container.appendChild(wrap);
+    updateSectionScore(sec.id);
+  });
+  updateSummary();
+}
+
+function toggleSection(id) {
+  const body = document.getElementById("body-" + id);
+  const chev = document.getElementById("chev-" + id);
+  const open = body.classList.toggle("open");
+  chev.classList.toggle("open", open);
+}
+
+function setFinding(secId, idx, key, val) {
+  if (!state[secId]) state[secId] = {};
+  if (!state[secId][idx]) state[secId][idx] = {};
+  state[secId][idx][key] = val;
+  if (key === "status") {
+    const badge = document.getElementById(`badge-${secId}-${idx}`);
+    if (badge) { badge.className = "badge " + getStatusClass(val); badge.textContent = getStatusLabel(val); }
+    updateSectionScore(secId);
+    updateSummary();
+  }
+}
+
+function setHypothesis(secId, val) {
+  if (!state[secId]) state[secId] = {};
+  state[secId]._hypothesis = val;
+}
+
+function updateSectionScore(secId) {
+  const sec = sections.find(s => s.id === secId);
+  const reds = sec.signals.filter((s,i) => state[secId]?.[i]?.status === "red").length;
+  const ambers = sec.signals.filter((s,i) => state[secId]?.[i]?.status === "amber").length;
+  const reviewed = sec.signals.filter((s,i) => state[secId]?.[i]?.status).length;
+  const el = document.getElementById("score-" + secId);
+  if (!el) return;
+  if (reds > 0) { el.style.color = "var(--red)"; el.textContent = `${reds} red flag${reds>1?'s':''}`; }
+  else if (ambers > 0) { el.style.color = "var(--amber)"; el.textContent = `${ambers} amber flag${ambers>1?'s':''}`; }
+  else if (reviewed === sec.signals.length) { el.style.color = "var(--green)"; el.textContent = "All clear"; }
+  else { el.style.color = "var(--text-tertiary)"; el.textContent = `${reviewed}/${sec.signals.length} reviewed`; }
+}
+
+function updateSummary() {
+  let total = 0, reviewed = 0, reds = 0, ambers = 0;
+  let areaCounts = {};
+  sections.forEach(sec => {
+    let areaRed = 0;
+    sec.signals.forEach((sig, i) => {
+      total++;
+      const s = state[sec.id]?.[i]?.status;
+      if (s) reviewed++;
+      if (s === "red") { reds++; areaRed++; }
+      if (s === "amber") ambers++;
+    });
+    areaCounts[sec.name] = areaRed;
+  });
+  document.getElementById("stat-total").textContent = total;
+  document.getElementById("stat-reviewed").textContent = reviewed;
+  document.getElementById("stat-red").textContent = reds;
+  document.getElementById("stat-amber").textContent = ambers;
+  const top = Object.entries(areaCounts).sort((a,b) => b[1]-a[1])[0];
+  const causeEl = document.getElementById("stat-cause");
+  if (top && top[1] > 0) {
+    causeEl.style.fontSize = "13px";
+    causeEl.textContent = top[0];
+  } else {
+    causeEl.style.fontSize = "26px";
+    causeEl.textContent = "—";
+  }
+}
+
+function openExport() {
+  let out = "OUTBOUND NEW BUSINESS DIAGNOSTIC — FINDINGS EXPORT\n";
+  out += "=".repeat(52) + "\n\n";
+  let hasAny = false;
+  sections.forEach(sec => {
+    const reds = [], ambers = [], greens = [];
+    sec.signals.forEach((sig, i) => {
+      const f = state[sec.id]?.[i] || {};
+      const note = f.note ? ` [${f.note}]` : '';
+      if (f.status === "red") reds.push(`  ✗ ${sig.label}${note}`);
+      if (f.status === "amber") ambers.push(`  ~ ${sig.label}${note}`);
+      if (f.status === "green") greens.push(`  ✓ ${sig.label}${note}`);
+    });
+    const hyp = state[sec.id]?._hypothesis;
+    if (reds.length || ambers.length || greens.length || hyp) {
+      hasAny = true;
+      out += `${sec.name.toUpperCase()}\n`;
+      out += "-".repeat(sec.name.length) + "\n";
+      if (reds.length) { out += "Critical issues:\n" + reds.join("\n") + "\n"; }
+      if (ambers.length) { out += "Needs review:\n" + ambers.join("\n") + "\n"; }
+      if (greens.length) { out += "On track:\n" + greens.join("\n") + "\n"; }
+      if (hyp) { out += `Notes: ${hyp}\n`; }
+      out += "\n";
+    }
+  });
+  if (!hasAny) out += "No findings recorded yet. Fill in the scorecard and export again.\n";
+
+  // Summary
+  let reds = 0, ambers = 0, areaCounts = {};
+  sections.forEach(sec => {
+    let ar = 0;
+    sec.signals.forEach((s,i) => {
+      const st = state[sec.id]?.[i]?.status;
+      if (st === "red") { reds++; ar++; }
+      if (st === "amber") ambers++;
+    });
+    areaCounts[sec.name] = ar;
+  });
+  const top = Object.entries(areaCounts).sort((a,b) => b[1]-a[1])[0];
+  out += "=".repeat(52) + "\n";
+  out += `SUMMARY: ${reds} critical issue(s), ${ambers} amber flag(s)\n`;
+  if (top && top[1] > 0) out += `Highest risk area: ${top[0]}\n`;
+
+  document.getElementById("export-text").value = out;
+  document.getElementById("modal").classList.add("open");
+}
+
+function closeModal() {
+  document.getElementById("modal").classList.remove("open");
+}
+
+function copyExport() {
+  const ta = document.getElementById("export-text");
+  ta.select();
+  document.execCommand("copy");
+  const btn = event.target;
+  btn.textContent = "Copied!";
+  setTimeout(() => btn.textContent = "Copy to clipboard", 1800);
+}
+
+function resetAll() {
+  if (!confirm("Reset all findings? This cannot be undone.")) return;
+  state = {};
+  buildSections();
+}
+
+document.getElementById("modal").addEventListener("click", function(e) {
+  if (e.target === this) closeModal();
+});
+
+buildSections();
+</script>
+</body>
+</html>
